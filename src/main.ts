@@ -83,22 +83,29 @@ const uniforms = {
 	u_maxSteps: requireUniform('u_maxSteps'),
 	u_maxDistance: requireUniform('u_maxDistance'),
 	u_focalLength: requireUniform('u_focalLength'),
+	u_fogDensity: requireUniform('u_fogDensity'),
+	u_fogColor: requireUniform('u_fogColor'),
+	u_glowIntensity: requireUniform('u_glowIntensity'),
 };
 
 // ---- State ----
+
+
 const state = {
-	sliceAxes: { right: Vec6.X(), up: Vec6.Y(), forward: Vec6.Z() },
+	sliceAxes: { right: Vec6.Z(), up: Vec6.W(), forward: Vec6.X() },
 	position: new Vec6(-0.5, 0, 0, 0, 2, 0),
 	zoom: 0.2,
-	focalLength: 2.0 * 1000,
+	focalLength: 2.0,
 	dolly: 3.0,
-	renderScale: 0.6,
+	resolution: 0.6,
 	rotMatrix: Mat6.identity(),
 	maxIterations: 40,
 	stepSize: 0.03,
 	maxDistance: 1.5 * 1.2 * 2 + 1,
 	bailout: 1e10,
 	lightDir: [-0.5, -0.7, -1.0] as [number, number, number],
+	fogDensity: 0.1,
+	glowIntensity: 1.2,
 };
 
 interface Frame {
@@ -159,7 +166,7 @@ function update(dt: number): void {
 }
 
 function resize(): void {
-	const dpr = Math.min(window.devicePixelRatio, 1) * state.renderScale;
+	const dpr = Math.min(window.devicePixelRatio, 1) * state.resolution;
 	const w = Math.max(2, Math.floor(canvas.clientWidth * dpr));
 	const h = Math.max(2, Math.floor(canvas.clientHeight * dpr));
 	if (canvas.width !== w || canvas.height !== h) {
@@ -193,6 +200,9 @@ function renderFrame(): void {
 	gl.uniform1i(uniforms.u_maxSteps, maxSteps);
 	gl.uniform1f(uniforms.u_maxDistance, state.maxDistance);
 	gl.uniform1f(uniforms.u_focalLength, state.focalLength);
+	gl.uniform1f(uniforms.u_fogDensity, state.fogDensity);
+	gl.uniform4f(uniforms.u_fogColor, 0.1, 0.15, 0.3, 1.0);
+	gl.uniform1f(uniforms.u_glowIntensity, state.glowIntensity);
 
 	gl.drawArrays(gl.TRIANGLES, 0, 3);
 

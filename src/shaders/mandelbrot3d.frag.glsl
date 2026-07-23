@@ -32,6 +32,10 @@ uniform int u_maxSteps;
 uniform float u_maxDistance;
 uniform float u_focalLength;
 
+uniform float u_fogDensity;
+uniform vec4 u_fogColor;
+uniform float u_glowIntensity;
+
 struct ColorStop {
 	float position;
 	vec4 color;
@@ -113,14 +117,10 @@ void main() {
 	Vec6 forwardV = u_forward;
 
 	Vec6 pinhole = add6(u_pos, mul6(forwardV, -u_focalLength));
-	
+
 	Vec6 retina = add6(
 		u_pos,
-		//add6(
-		(
-			add6(mul6(rightV, pixelOffset.x), mul6(upV, pixelOffset.y))
-			//mul6(forwardV, 0)
-		)
+		add6(mul6(rightV, pixelOffset.x), mul6(upV, pixelOffset.y))
 	);
 
 	Vec6 rayDir = normalize6(sub6(retina, pinhole));
@@ -131,17 +131,35 @@ void main() {
 	bool hit = false;
 	Vec6 hitPos = rayOrigin;
 
+	// Glow accumulation during ray march
+	vec4 glowAccum = vec4(0.0);
+
 	for (int i = 0; i < u_maxSteps; i++) {
 		Vec6 p = add6(rayOrigin, mul6(rayDir, t));
 		float it = mandel(p);
-		if (it >= float(u_maxIterations)) { hit = true; hitPos = p; break; }
+
+		// Accumulate glow from points near the set (high iteration count)
 		float f = clamp(it / float(u_maxIterations), 0.0, 1.0);
+		if (f > 0.2) {
+			vec4 glowColor = sampleGradient(f);
+			float glowWeight = smoothstep(0.2, 1.0, f) * u_glowIntensity * baseStep * 0.5;
+			// Fog-attenuate the glow contribution
+			float distFog = exp(-u_fogDensity * t);
+			glowAccum += glowColor * glowWeight * distFog;
+		}
+
+		if (it >= float(u_maxIterations)) { hit = true; hitPos = p; break; }
 		t += baseStep * mix(0.35, 1.0, f);
 		if (t > u_maxDistance) break;
 	}
 
+	// Fog factor for the surface hit
+	float fogFactor = exp(-u_fogDensity * t);
+
 	if (!hit) {
-		fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+		// No hit: show accumulated glow against fog color
+		vec4 result = glowAccum + u_fogColor * (1.0 - fogFactor);
+		fragColor = vec4(result.rgb, 1.0);
 		return;
 	}
 
@@ -155,6 +173,12 @@ void main() {
 	float colorValue = surfaceIter(extPos);
 	vec4 baseColor = sampleGradient(colorValue);
 
-	vec3 col = baseColor.rgb * (ambient + diff * 0.85);
-	fragColor = vec4(col, 1.0);
+	vec3 litColor = baseColor.rgb * (ambient + diff * 0.85);
+
+	// Apply fog to the surface
+	vec4 surfaceResult = vec4(mix(u_fogColor.rgb, litColor, fogFactor), 1.0);
+
+	// Add accumulated glow on top
+	vec4 result = surfaceResult + glowAccum * fogFactor;
+	fragColor = vec4(result.rgb, 1.0);
 }
