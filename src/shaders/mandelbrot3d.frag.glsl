@@ -12,7 +12,7 @@ Vec6 mul6(Vec6 a, float s) { return Vec6(a.x*s, a.y*s, a.z*s, a.w*s, a.v*s, a.u*
 uniform Vec6 u_pos;
 uniform Vec6 u_right;
 uniform Vec6 u_up;
-uniform Vec6 u_fwd;
+uniform Vec6 u_forward;
 
 uniform vec2 u_screenSize;
 uniform float u_zoom;
@@ -82,10 +82,10 @@ bool isInside(Vec6 p) {
 }
 
 // Normal via central differences on an "exterior distance" field in screen space.
-vec3 calcNormal(Vec6 p, float eps, Vec6 right, Vec6 up, Vec6 fwd) {
+vec3 calcNormal(Vec6 p, float eps, Vec6 right, Vec6 up, Vec6 forward) {
 	float dx = (isInside(add6(p, mul6(right,  eps))) ? 1.0 : 0.0) - (isInside(add6(p, mul6(right, -eps))) ? 1.0 : 0.0);
 	float dy = (isInside(add6(p, mul6(up,     eps))) ? 1.0 : 0.0) - (isInside(add6(p, mul6(up,     -eps))) ? 1.0 : 0.0);
-	float dz = (isInside(add6(p, mul6(fwd,    eps))) ? 1.0 : 0.0) - (isInside(add6(p, mul6(fwd,    -eps))) ? 1.0 : 0.0);
+	float dz = (isInside(add6(p, mul6(forward,    eps))) ? 1.0 : 0.0) - (isInside(add6(p, mul6(forward,    -eps))) ? 1.0 : 0.0);
 	vec3 n = vec3(dx, dy, dz);
 	if (dot(n, n) < 1e-8) return vec3(0.0, 0.0, 1.0);
 	return normalize(n);
@@ -103,7 +103,7 @@ void main() {
 
 	Vec6 rightV = u_right;
 	Vec6 upV = u_up;
-	Vec6 fwdV = u_fwd;
+	Vec6 forwardV = u_forward;
 
 	// Ray setup in 6D: origin on the slice plane, direction = forward vector.
 	Vec6 rayOrigin = add6(u_pos, add6(mul6(rightV, pixelOffset.x), mul6(upV, pixelOffset.y)));
@@ -111,13 +111,13 @@ void main() {
 	// March through the slice volume [-u_sliceExtent, +u_sliceExtent].
 	// Fixed absolute step size; u_maxSteps is sized by JS so the ray always
 	// covers the whole volume regardless of the adaptive slowdown near the set.
-	float t = -u_sliceExtent;
+	float t = 0.0;
 	float baseStep = 0.01 * u_stepFactor;
 	bool hit = false;
 	Vec6 hitPos = rayOrigin;
 
 	for (int i = 0; i < u_maxSteps; i++) {
-		Vec6 p = add6(rayOrigin, mul6(fwdV, t));
+		Vec6 p = add6(rayOrigin, mul6(forwardV, t));
 		float it = mandel(p);
 		if (it >= float(u_maxIterations)) { hit = true; hitPos = p; break; }
 		float f = clamp(it / float(u_maxIterations), 0.0, 1.0);
@@ -131,12 +131,12 @@ void main() {
 	}
 
 	// Shade: gradient color from iteration field near surface + simple diffuse lighting.
-	vec3 normal = calcNormal(hitPos, baseStep * 0.75, rightV, upV, fwdV);
+	vec3 normal = calcNormal(hitPos, baseStep * 0.75, rightV, upV, forwardV);
 	float diff = clamp(dot(normal, normalize(-u_lightDir)), 0.0, 1.0);
 	float ambient = 0.25;
 
 	// Sample iteration count a bit in front of the hit (exterior side) for color.
-	Vec6 extPos = add6(hitPos, mul6(fwdV, -baseStep * 1.5));
+	Vec6 extPos = add6(hitPos, mul6(forwardV, -baseStep * 1.5));
 	float colorValue = surfaceIter(extPos);
 	vec4 baseColor = sampleGradient(colorValue);
 
