@@ -8,6 +8,12 @@ out vec4 fragColor;
 struct Vec6 { float x; float y; float z; float w; float v; float u; };
 Vec6 add6(Vec6 a, Vec6 b) { return Vec6(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w, a.v+b.v, a.u+b.u); }
 Vec6 mul6(Vec6 a, float s) { return Vec6(a.x*s, a.y*s, a.z*s, a.w*s, a.v*s, a.u*s); }
+Vec6 sub6(Vec6 a, Vec6 b) { return Vec6(a.x-b.x, a.y-b.y, a.z-b.z, a.w-b.w, a.v-b.v, a.u-b.u); }
+float dot6(Vec6 a, Vec6 b) { return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w + a.v*b.v + a.u*b.u; }
+Vec6 normalize6(Vec6 v) {
+	float len = sqrt(max(dot6(v, v), 1e-12));
+	return mul6(v, 1.0 / len);
+}
 
 uniform Vec6 u_pos;
 uniform Vec6 u_right;
@@ -20,10 +26,11 @@ uniform float u_zoom;
 uniform float u_bailoutRadiusSquared;
 uniform int u_maxIterations;
 
-uniform vec3 u_lightDir;      // world-space (screen-space) light direction
-uniform float u_stepFactor;   // raymarch step multiplier
+uniform vec3 u_lightDir;
+uniform float u_stepFactor;
 uniform int u_maxSteps;
-uniform float u_sliceExtent;  // half-depth of marching volume along forward axis
+uniform float u_maxDistance;
+uniform float u_focalLength;
 
 struct ColorStop {
 	float position;
@@ -105,24 +112,32 @@ void main() {
 	Vec6 upV = u_up;
 	Vec6 forwardV = u_forward;
 
-	// Ray setup in 6D: origin on the slice plane, direction = forward vector.
-	Vec6 rayOrigin = add6(u_pos, add6(mul6(rightV, pixelOffset.x), mul6(upV, pixelOffset.y)));
+	Vec6 pinhole = add6(u_pos, mul6(forwardV, -u_focalLength));
+	
+	Vec6 retina = add6(
+		u_pos,
+		//add6(
+		(
+			add6(mul6(rightV, pixelOffset.x), mul6(upV, pixelOffset.y))
+			//mul6(forwardV, 0)
+		)
+	);
 
-	// March through the slice volume [-u_sliceExtent, +u_sliceExtent].
-	// Fixed absolute step size; u_maxSteps is sized by JS so the ray always
-	// covers the whole volume regardless of the adaptive slowdown near the set.
+	Vec6 rayDir = normalize6(sub6(retina, pinhole));
+	Vec6 rayOrigin = retina;
+
 	float t = 0.0;
 	float baseStep = 0.01 * u_stepFactor;
 	bool hit = false;
 	Vec6 hitPos = rayOrigin;
 
 	for (int i = 0; i < u_maxSteps; i++) {
-		Vec6 p = add6(rayOrigin, mul6(forwardV, t));
+		Vec6 p = add6(rayOrigin, mul6(rayDir, t));
 		float it = mandel(p);
 		if (it >= float(u_maxIterations)) { hit = true; hitPos = p; break; }
 		float f = clamp(it / float(u_maxIterations), 0.0, 1.0);
 		t += baseStep * mix(0.35, 1.0, f);
-		if (t > u_sliceExtent) break;
+		if (t > u_maxDistance) break;
 	}
 
 	if (!hit) {
@@ -136,7 +151,7 @@ void main() {
 	float ambient = 0.25;
 
 	// Sample iteration count a bit in front of the hit (exterior side) for color.
-	Vec6 extPos = add6(hitPos, mul6(forwardV, -baseStep * 1.5));
+	Vec6 extPos = add6(hitPos, mul6(rayDir, -baseStep * 1.5));
 	float colorValue = surfaceIter(extPos);
 	vec4 baseColor = sampleGradient(colorValue);
 

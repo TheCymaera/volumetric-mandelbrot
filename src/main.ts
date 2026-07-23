@@ -81,22 +81,22 @@ const uniforms = {
 	u_lightDir: requireUniform('u_lightDir'),
 	u_stepFactor: requireUniform('u_stepFactor'),
 	u_maxSteps: requireUniform('u_maxSteps'),
-	u_sliceExtent: requireUniform('u_sliceExtent'),
+	u_maxDistance: requireUniform('u_maxDistance'),
+	u_focalLength: requireUniform('u_focalLength'),
 };
-
-const AXIS_NAMES = ['x(c.re)', 'y(c.im)', 'z(z0.re)', 'w(z0.im)', 'v(e.re)', 'u(e.im)'] as const;
-const ALL_AXES: Vec6[] = [Vec6.X(), Vec6.Y(), Vec6.Z(), Vec6.W(), Vec6.V(), Vec6.U()];
 
 // ---- State ----
 const state = {
-	sliceAxes: [Vec6.X(), Vec6.Y(), Vec6.Z()] as [Vec6, Vec6, Vec6],
-	position: new Vec6(-0.5, 0, -2, 0, 2, 0),
+	sliceAxes: { right: Vec6.X(), up: Vec6.Y(), forward: Vec6.Z() },
+	position: new Vec6(-0.5, 0, 0, 0, 2, 0),
 	zoom: 0.2,
+	focalLength: 2.0 * 1000,
+	dolly: 3.0,
 	renderScale: 0.6,
 	rotMatrix: Mat6.identity(),
 	maxIterations: 40,
-	stepSize: 0.02,
-	sliceExtent: 1.5 * 1.2 * 2,
+	stepSize: 0.03,
+	maxDistance: 1.5 * 1.2 * 2 + 1,
 	bailout: 1e10,
 	lightDir: [-0.5, -0.7, -1.0] as [number, number, number],
 };
@@ -108,9 +108,9 @@ interface Frame {
 }
 
 function buildFrame(): Frame {
-	const r = state.rotMatrix.multiplyVec6(state.sliceAxes[0]);
-	const u = state.rotMatrix.multiplyVec6(state.sliceAxes[1]);
-	const f = state.rotMatrix.multiplyVec6(state.sliceAxes[2]);
+	const r = state.rotMatrix.multiplyVec6(state.sliceAxes.right);
+	const u = state.rotMatrix.multiplyVec6(state.sliceAxes.up);
+	const f = state.rotMatrix.multiplyVec6(state.sliceAxes.forward);
 	return { right: r, up: u, forward: f };
 }
 
@@ -130,22 +130,11 @@ window.addEventListener('mousemove', e => {
 });
 canvas.addEventListener('wheel', e => {
 	e.preventDefault();
-	state.zoom *= Math.exp(-e.deltaY * 0.001);
+	state.dolly += e.deltaY * 0.001;
 }, { passive: false });
 
 window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-
-// Cycle slice axis triplets with Tab
-window.addEventListener('keydown', e => {
-	if (e.key === 'Tab') {
-		e.preventDefault();
-		const idx = ALL_AXES.indexOf(state.sliceAxes[0]);
-		const next = (idx + 1) % 6;
-		state.sliceAxes = [ALL_AXES[next]!, ALL_AXES[(next + 1) % 6]!, ALL_AXES[(next + 2) % 6]!];
-		state.rotMatrix = Mat6.identity();
-	}
-});
 
 function update(dt: number): void {
 	const rs = 1.2 * dt;
@@ -188,8 +177,9 @@ function renderFrame(): void {
 	resize();
 
 	const frame = buildFrame();
+	const effectivePos = state.position.add(frame.forward.scale(-state.dolly));
 	gl.useProgram(prog);
-	setVec6(uniforms.u_pos, state.position);
+	setVec6(uniforms.u_pos, effectivePos);
 	setVec6(uniforms.u_right, frame.right);
 	setVec6(uniforms.u_up, frame.up);
 	setVec6(uniforms.u_forward, frame.forward);
@@ -199,18 +189,19 @@ function renderFrame(): void {
 	gl.uniform1i(uniforms.u_maxIterations, state.maxIterations);
 	gl.uniform3fv(uniforms.u_lightDir, state.lightDir);
 	gl.uniform1f(uniforms.u_stepFactor, state.stepSize / 0.01);
-	const maxSteps = Math.ceil(2 * state.sliceExtent / (state.stepSize * 0.35));
+	const maxSteps = Math.ceil(2 * state.maxDistance / (state.stepSize * 0.35));
 	gl.uniform1i(uniforms.u_maxSteps, maxSteps);
-	gl.uniform1f(uniforms.u_sliceExtent, state.sliceExtent);
+	gl.uniform1f(uniforms.u_maxDistance, state.maxDistance);
+	gl.uniform1f(uniforms.u_focalLength, state.focalLength);
 
 	gl.drawArrays(gl.TRIANGLES, 0, 3);
 
 	hud.textContent =
-		`6D Mandelbrot — 3D slice\n` +
-		`slice axes (R,U,F): ${state.sliceAxes.map(a => AXIS_NAMES[ALL_AXES.indexOf(a)]).join(' / ')}\n` +
+		`right: ${state.sliceAxes.right.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
+		`up: ${state.sliceAxes.up.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
+		`forward: ${state.sliceAxes.forward.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
 		`pos: ${state.position.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
-		`zoom: ${state.zoom.toFixed(3)}\n` +
-		`drag=pan  wheel=zoom  WASD=pan  T/G=rotate up/down  F/H=rotate left/right  arrows=depth  Tab=cycle axes`;
+		`zoom: ${state.zoom.toFixed(3)}  dolly: ${state.dolly.toFixed(2)}`;
 
 	requestAnimationFrame(renderFrame);
 }
