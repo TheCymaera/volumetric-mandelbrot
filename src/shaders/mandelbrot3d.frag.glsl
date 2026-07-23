@@ -70,7 +70,6 @@ vec2 complexPow(vec2 num, vec2 exponent) {
 	return vec2(newR * cos(newTheta), newR * sin(newTheta));
 }
 
-// Iteration count at a 6D point. Returns iterations; >= maxIterations means "inside".
 float mandelbrot(Vec6 p) {
 	vec2 z = vec2(p.z, p.w);
 	vec2 c = vec2(p.x, p.y);
@@ -87,12 +86,10 @@ float mandelbrot(Vec6 p) {
 	return float(iterations);
 }
 
-// "Inside" test: the 3D solid is the set of points that never escape.
 bool isInside(Vec6 p) {
 	return mandelbrot(p) >= float(u_maxIterations);
 }
 
-// Normal via central differences on an "exterior distance" field in screen space.
 vec3 calcNormal(Vec6 p, float eps, Vec6 right, Vec6 up, Vec6 forward) {
 	float dx = (isInside(add6(p, mul6(right,  eps))) ? 1.0 : 0.0) - (isInside(add6(p, mul6(right, -eps))) ? 1.0 : 0.0);
 	float dy = (isInside(add6(p, mul6(up,     eps))) ? 1.0 : 0.0) - (isInside(add6(p, mul6(up,     -eps))) ? 1.0 : 0.0);
@@ -100,11 +97,6 @@ vec3 calcNormal(Vec6 p, float eps, Vec6 right, Vec6 up, Vec6 forward) {
 	vec3 n = vec3(dx, dy, dz);
 	if (dot(n, n) < 1e-8) return vec3(0.0, 0.0, 1.0);
 	return normalize(n);
-}
-
-// Fractional iteration value used for coloring the surface: sample slightly outside along the ray.
-float surfaceIter(Vec6 p) {
-	return clamp(mandelbrot(p) / float(u_maxIterations), 0.0, 1.0);
 }
 
 void main() {
@@ -170,7 +162,7 @@ void main() {
 
 	// Sample iteration count a bit in front of the hit (exterior side) for color.
 	Vec6 extPos = add6(hitPos, mul6(rayDir, -baseStep * 1.5));
-	float colorValue = surfaceIter(extPos);
+	float colorValue = mandelbrot(extPos) / float(u_maxIterations);
 	vec4 baseColor = sampleGradient(colorValue);
 
 	vec3 litColor = baseColor.rgb * (ambient + diff * 0.85);
