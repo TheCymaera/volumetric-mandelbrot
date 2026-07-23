@@ -71,7 +71,7 @@ vec2 complexPow(vec2 num, vec2 exponent) {
 }
 
 // Iteration count at a 6D point. Returns iterations; >= maxIterations means "inside".
-float mandel(Vec6 p) {
+float mandelbrot(Vec6 p) {
 	vec2 z = vec2(p.z, p.w);
 	vec2 c = vec2(p.x, p.y);
 	vec2 e = vec2(p.v, p.u);
@@ -89,7 +89,7 @@ float mandel(Vec6 p) {
 
 // "Inside" test: the 3D solid is the set of points that never escape.
 bool isInside(Vec6 p) {
-	return mandel(p) >= float(u_maxIterations);
+	return mandelbrot(p) >= float(u_maxIterations);
 }
 
 // Normal via central differences on an "exterior distance" field in screen space.
@@ -104,7 +104,7 @@ vec3 calcNormal(Vec6 p, float eps, Vec6 right, Vec6 up, Vec6 forward) {
 
 // Fractional iteration value used for coloring the surface: sample slightly outside along the ray.
 float surfaceIter(Vec6 p) {
-	return clamp(mandel(p) / float(u_maxIterations), 0.0, 1.0);
+	return clamp(mandelbrot(p) / float(u_maxIterations), 0.0, 1.0);
 }
 
 void main() {
@@ -132,11 +132,11 @@ void main() {
 	Vec6 hitPos = rayOrigin;
 
 	// Glow accumulation during ray march
-	vec4 glowAccum = vec4(0.0);
+	vec4 glowAcc = vec4(0.0);
 
 	for (int i = 0; i < u_maxSteps; i++) {
 		Vec6 p = add6(rayOrigin, mul6(rayDir, t));
-		float it = mandel(p);
+		float it = mandelbrot(p);
 
 		// Accumulate glow from points near the set (high iteration count)
 		float f = clamp(it / float(u_maxIterations), 0.0, 1.0);
@@ -145,7 +145,7 @@ void main() {
 			float glowWeight = smoothstep(0.2, 1.0, f) * u_glowIntensity * baseStep * 0.5;
 			// Fog-attenuate the glow contribution
 			float distFog = exp(-u_fogDensity * t);
-			glowAccum += glowColor * glowWeight * distFog;
+			glowAcc += glowColor * glowWeight * distFog;
 		}
 
 		if (it >= float(u_maxIterations)) { hit = true; hitPos = p; break; }
@@ -158,7 +158,7 @@ void main() {
 
 	if (!hit) {
 		// No hit: show accumulated glow against fog color
-		vec4 result = glowAccum + u_fogColor * (1.0 - fogFactor);
+		vec4 result = glowAcc + u_fogColor * (1.0 - fogFactor);
 		fragColor = vec4(result.rgb, 1.0);
 		return;
 	}
@@ -179,6 +179,6 @@ void main() {
 	vec4 surfaceResult = vec4(mix(u_fogColor.rgb, litColor, fogFactor), 1.0);
 
 	// Add accumulated glow on top
-	vec4 result = surfaceResult + glowAccum * fogFactor;
+	vec4 result = surfaceResult + glowAcc * fogFactor;
 	fragColor = vec4(result.rgb, 1.0);
 }

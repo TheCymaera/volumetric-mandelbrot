@@ -92,20 +92,21 @@ const uniforms = {
 
 
 const state = {
-	sliceAxes: { right: Vec6.Z(), up: Vec6.W(), forward: Vec6.X() },
+	axes: { right: Vec6.Z(), up: Vec6.W(), forward: Vec6.X() },
 	position: new Vec6(-0.5, 0, 0, 0, 2, 0),
 	zoom: 0.2,
-	focalLength: 2.0,
+	focalLength: 3.0,
 	dolly: 3.0,
 	resolution: 0.6,
 	rotMatrix: Mat6.identity(),
-	maxIterations: 40,
+	maxIterations: 40 * 2,
 	stepSize: 0.03,
 	maxDistance: 1.5 * 1.2 * 2 + 1,
 	bailout: 1e10,
 	lightDir: [-0.5, -0.7, -1.0] as [number, number, number],
 	fogDensity: 0.1,
-	glowIntensity: 1.2,
+	fogColor: [0.1, 0.15, 0.3, 1.0] as [number, number, number, number],
+	glowIntensity: 12,
 };
 
 interface Frame {
@@ -115,9 +116,9 @@ interface Frame {
 }
 
 function buildFrame(): Frame {
-	const r = state.rotMatrix.multiplyVec6(state.sliceAxes.right);
-	const u = state.rotMatrix.multiplyVec6(state.sliceAxes.up);
-	const f = state.rotMatrix.multiplyVec6(state.sliceAxes.forward);
+	const r = state.rotMatrix.multiplyVec6(state.axes.right);
+	const u = state.rotMatrix.multiplyVec6(state.axes.up);
+	const f = state.rotMatrix.multiplyVec6(state.axes.forward);
 	return { right: r, up: u, forward: f };
 }
 
@@ -143,26 +144,26 @@ canvas.addEventListener('wheel', e => {
 window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-function update(dt: number): void {
-	const rs = 1.2 * dt;
-	const ps = 1.0 / state.zoom * dt;
+function update(deltaTime: number): void {
+	const rotSpeed = 1.2 * deltaTime;
+	const moveSpeed = .5 / state.zoom * deltaTime;
 	const frame = buildFrame();
 
 	// T/G: rotate around right axis (tilt up/down)
-	if (keys['t']) state.rotMatrix = Mat6.rotationFromAxes(frame.up, frame.forward, rs).multiply(state.rotMatrix);
-	if (keys['g']) state.rotMatrix = Mat6.rotationFromAxes(frame.up, frame.forward, -rs).multiply(state.rotMatrix);
+	if (keys['t']) state.rotMatrix = Mat6.rotationFromAxes(frame.up, frame.forward, rotSpeed).multiply(state.rotMatrix);
+	if (keys['g']) state.rotMatrix = Mat6.rotationFromAxes(frame.up, frame.forward, -rotSpeed).multiply(state.rotMatrix);
 	// F/H: rotate around up axis (pan left/right)
-	if (keys['f']) state.rotMatrix = Mat6.rotationFromAxes(frame.right, frame.forward, rs).multiply(state.rotMatrix);
-	if (keys['h']) state.rotMatrix = Mat6.rotationFromAxes(frame.right, frame.forward, -rs).multiply(state.rotMatrix);
+	if (keys['f']) state.rotMatrix = Mat6.rotationFromAxes(frame.right, frame.forward, rotSpeed).multiply(state.rotMatrix);
+	if (keys['h']) state.rotMatrix = Mat6.rotationFromAxes(frame.right, frame.forward, -rotSpeed).multiply(state.rotMatrix);
 
-	if (keys['a']) state.position = state.position.add(frame.right.scale(-ps));
-	if (keys['d']) state.position = state.position.add(frame.right.scale(ps));
-	if (keys['w']) state.position = state.position.add(frame.up.scale(ps));
-	if (keys['s']) state.position = state.position.add(frame.up.scale(-ps));
-	if (keys['arrowup']) state.position = state.position.add(frame.forward.scale(ps));
-	if (keys['arrowdown']) state.position = state.position.add(frame.forward.scale(-ps));
-	if (keys['+'] || keys['=']) state.zoom *= 1 + dt;
-	if (keys['-']) state.zoom /= 1 + dt;
+	if (keys['a']) state.position = state.position.add(frame.right.scale(-moveSpeed));
+	if (keys['d']) state.position = state.position.add(frame.right.scale(moveSpeed));
+	if (keys['w']) state.position = state.position.add(frame.up.scale(moveSpeed));
+	if (keys['s']) state.position = state.position.add(frame.up.scale(-moveSpeed));
+	if (keys['arrowup']) state.position = state.position.add(frame.forward.scale(moveSpeed));
+	if (keys['arrowdown']) state.position = state.position.add(frame.forward.scale(-moveSpeed));
+	if (keys['+'] || keys['=']) state.zoom *= 1 + deltaTime;
+	if (keys['-']) state.zoom /= 1 + deltaTime;
 }
 
 function resize(): void {
@@ -178,9 +179,9 @@ function resize(): void {
 let lastT = performance.now();
 function renderFrame(): void {
 	const now = performance.now();
-	const dt = Math.min((now - lastT) / 1000, 0.1);
+	const deltaTime = Math.min((now - lastT) / 1000, 0.1);
 	lastT = now;
-	update(dt);
+	update(deltaTime);
 	resize();
 
 	const frame = buildFrame();
@@ -201,15 +202,15 @@ function renderFrame(): void {
 	gl.uniform1f(uniforms.u_maxDistance, state.maxDistance);
 	gl.uniform1f(uniforms.u_focalLength, state.focalLength);
 	gl.uniform1f(uniforms.u_fogDensity, state.fogDensity);
-	gl.uniform4f(uniforms.u_fogColor, 0.1, 0.15, 0.3, 1.0);
+	gl.uniform4f(uniforms.u_fogColor, ...state.fogColor);
 	gl.uniform1f(uniforms.u_glowIntensity, state.glowIntensity);
 
 	gl.drawArrays(gl.TRIANGLES, 0, 3);
 
 	hud.textContent =
-		`right: ${state.sliceAxes.right.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
-		`up: ${state.sliceAxes.up.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
-		`forward: ${state.sliceAxes.forward.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
+		`right: ${state.axes.right.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
+		`up: ${state.axes.up.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
+		`forward: ${state.axes.forward.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
 		`pos: ${state.position.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
 		`zoom: ${state.zoom.toFixed(3)}  dolly: ${state.dolly.toFixed(2)}`;
 
