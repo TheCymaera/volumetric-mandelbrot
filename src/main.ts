@@ -79,7 +79,7 @@ const uniforms = {
 	u_bailoutRadiusSquared: requireUniform('u_bailoutRadiusSquared'),
 	u_maxIterations: requireUniform('u_maxIterations'),
 	u_lightDir: requireUniform('u_lightDir'),
-	u_stepFactor: requireUniform('u_stepFactor'),
+	u_stepSize: requireUniform('u_stepSize'),
 	u_maxSteps: requireUniform('u_maxSteps'),
 	u_maxDistance: requireUniform('u_maxDistance'),
 	u_focalLength: requireUniform('u_focalLength'),
@@ -89,19 +89,58 @@ const uniforms = {
 };
 
 // ---- State ----
+interface InputMode {
+	name: string;
+	horizontal: Vec6;
+	vertical: Vec6;
+	depth: Vec6;
+	planeMappings: { from: number, to: number }[];
+}
 
+const inputModes = [
+	{
+		name: "Mandelbrot",
+		horizontal: Vec6.X(),
+		vertical: Vec6.Y(),
+		depth: Vec6.Z(),
+		planeMappings: []
+	} as InputMode,
+	{
+		name: "Julia",
+		horizontal: Vec6.Z(),
+		vertical: Vec6.W(),
+		depth: Vec6.ZERO(),
+		planeMappings: [
+			{ from: Vec6.X_INDEX, to: Vec6.Z_INDEX },
+			{ from: Vec6.Y_INDEX, to: Vec6.W_INDEX },
+		]
+	} as InputMode,
+	{
+		name: "X",
+		horizontal: Vec6.V(),
+		vertical: Vec6.U(),
+		depth: Vec6.ZERO(),
+		planeMappings: [
+			{ from: Vec6.X_INDEX, to: Vec6.V_INDEX },
+			{ from: Vec6.Y_INDEX, to: Vec6.U_INDEX },
+		]
+	} as InputMode,
+] as const;
+
+//const rotMatrix = Mat6.createPlaneMapping(Vec6.X_INDEX, Vec6.Y_INDEX, Vec6.Z_INDEX, Vec6.W_INDEX);
 
 const state = {
-	axes: { right: Vec6.Z(), up: Vec6.W(), forward: Vec6.X() },
-	position: new Vec6(-0.5, 0, 0, 0, 2, 0),
+	axes: { right: Vec6.X(), up: Vec6.Y(), forward: Vec6.Z() },
+	inputMode: inputModes[0]!,
+	position: new Vec6(0, 0, 0, 0, 2, 0),
 	zoom: 0.2,
 	focalLength: 3.0,
 	dolly: 3.0,
 	resolution: 0.6,
 	rotMatrix: Mat6.identity(),
-	maxIterations: 40 * 2,
+	maxIterations: 80,
 	stepSize: 0.03,
-	maxDistance: 1.5 * 1.2 * 2 + 1,
+	maxDistance: 1.5 * 1.2 * 2 * 3,
 	bailout: 1e10,
 	lightDir: [-0.5, -0.7, -1.0] as [number, number, number],
 	fogDensity: 0.1,
@@ -130,18 +169,27 @@ canvas.addEventListener('mousedown', e => { dragging = true; lastX = e.clientX; 
 window.addEventListener('mouseup', () => { dragging = false; });
 window.addEventListener('mousemove', e => {
 	if (!dragging) return;
-	const dx = (e.clientX - lastX) / canvas.clientHeight;
-	const dy = (e.clientY - lastY) / canvas.clientHeight;
+	const dx = (e.clientX - lastX) / canvas.clientHeight * 3;
+	const dy = (e.clientY - lastY) / canvas.clientHeight * 3;
 	lastX = e.clientX; lastY = e.clientY;
 	const frame = buildFrame();
-	state.position = state.position.add(frame.right.scale(-dx / state.zoom)).add(frame.up.scale(dy / state.zoom));
+	// horizontal drag → rotate around up axis (like F/H)
+	state.rotMatrix = Mat6.rotationFromAxes(frame.right, frame.forward, -dx).multiply(state.rotMatrix);
+	// vertical drag → rotate around right axis (like T/G)
+	state.rotMatrix = Mat6.rotationFromAxes(frame.up, frame.forward, dy).multiply(state.rotMatrix);
 });
 canvas.addEventListener('wheel', e => {
 	e.preventDefault();
 	state.dolly += e.deltaY * 0.001;
 }, { passive: false });
 
-window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+window.addEventListener('keydown', e => {
+	const k = e.key.toLowerCase();
+	keys[k] = true;
+	if (k === '1') state.inputMode = inputModes[0];
+	if (k === '2') state.inputMode = inputModes[1];
+	if (k === '3') state.inputMode = inputModes[2];
+});
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
 function update(deltaTime: number): void {
@@ -156,14 +204,35 @@ function update(deltaTime: number): void {
 	if (keys['f']) state.rotMatrix = Mat6.rotationFromAxes(frame.right, frame.forward, rotSpeed).multiply(state.rotMatrix);
 	if (keys['h']) state.rotMatrix = Mat6.rotationFromAxes(frame.right, frame.forward, -rotSpeed).multiply(state.rotMatrix);
 
-	if (keys['a']) state.position = state.position.add(frame.right.scale(-moveSpeed));
-	if (keys['d']) state.position = state.position.add(frame.right.scale(moveSpeed));
-	if (keys['w']) state.position = state.position.add(frame.up.scale(moveSpeed));
-	if (keys['s']) state.position = state.position.add(frame.up.scale(-moveSpeed));
-	if (keys['arrowup']) state.position = state.position.add(frame.forward.scale(moveSpeed));
-	if (keys['arrowdown']) state.position = state.position.add(frame.forward.scale(-moveSpeed));
-	if (keys['+'] || keys['=']) state.zoom *= 1 + deltaTime;
-	if (keys['-']) state.zoom /= 1 + deltaTime;
+	// Movement uses the active input mode axes, rotated by the view
+	const hAxis = state.rotMatrix.multiplyVec6(state.inputMode.horizontal);
+	const vAxis = state.rotMatrix.multiplyVec6(state.inputMode.vertical);
+	const dAxis = state.rotMatrix.multiplyVec6(state.inputMode.depth);
+
+	if (keys['a']) state.position = state.position.add(hAxis.scale(-moveSpeed));
+	if (keys['d']) state.position = state.position.add(hAxis.scale(moveSpeed));
+	if (keys['w']) state.position = state.position.add(vAxis.scale(moveSpeed));
+	if (keys['s']) state.position = state.position.add(vAxis.scale(-moveSpeed));
+	if (keys['shift']) {
+		state.position = state.position.add(dAxis.scale(moveSpeed));
+		for (const mapping of state.inputMode.planeMappings) {
+			state.rotMatrix = Mat6.rotationFromAxes(
+				Vec6.fromIndex(mapping.from),
+				Vec6.fromIndex(mapping.to),
+				rotSpeed
+			).multiply(state.rotMatrix);
+		}
+	}
+	if (keys[' ']) {
+		state.position = state.position.add(dAxis.scale(-moveSpeed));
+		for (const mapping of state.inputMode.planeMappings) {
+			state.rotMatrix = Mat6.rotationFromAxes(
+				Vec6.fromIndex(mapping.from),
+				Vec6.fromIndex(mapping.to),
+				-rotSpeed
+			).multiply(state.rotMatrix);
+		}
+	}
 }
 
 function resize(): void {
@@ -196,9 +265,8 @@ function renderFrame(): void {
 	gl.uniform1f(uniforms.u_bailoutRadiusSquared, state.bailout);
 	gl.uniform1i(uniforms.u_maxIterations, state.maxIterations);
 	gl.uniform3fv(uniforms.u_lightDir, state.lightDir);
-	gl.uniform1f(uniforms.u_stepFactor, state.stepSize / 0.01);
-	const maxSteps = Math.ceil(2 * state.maxDistance / (state.stepSize * 0.35));
-	gl.uniform1i(uniforms.u_maxSteps, maxSteps);
+	gl.uniform1f(uniforms.u_stepSize, state.stepSize);
+	gl.uniform1i(uniforms.u_maxSteps, Math.ceil(state.maxDistance / state.stepSize));
 	gl.uniform1f(uniforms.u_maxDistance, state.maxDistance);
 	gl.uniform1f(uniforms.u_focalLength, state.focalLength);
 	gl.uniform1f(uniforms.u_fogDensity, state.fogDensity);
@@ -208,6 +276,7 @@ function renderFrame(): void {
 	gl.drawArrays(gl.TRIANGLES, 0, 3);
 
 	hud.textContent =
+		`mode: ${state.inputMode.name} (1/2/3 to switch)\n` +
 		`right: ${state.axes.right.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
 		`up: ${state.axes.up.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
 		`forward: ${state.axes.forward.toArray().map(v => v.toFixed(3)).join(', ')}\n` +
