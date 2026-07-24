@@ -4,6 +4,8 @@ import { Vec6 } from './maths/Vec6.js';
 import { Mat6 } from './maths/Mat6.js';
 
 const canvas = document.getElementById('gl') as HTMLCanvasElement;
+const axesCanvas = document.getElementById('axes-overlay') as HTMLCanvasElement;
+const axesCtx = axesCanvas.getContext('2d')!;
 const hud = document.getElementById('hud') as HTMLPreElement;
 const gl = canvas.getContext('webgl2')!;
 
@@ -161,6 +163,123 @@ function buildFrame(): Frame {
 	return { right: r, up: u, forward: f };
 }
 
+// ---- Axis overlay rendering ----
+const AXIS_COLORS: [number, number, number, number][] = [
+	[1.0, 0.0, 0.0, 1.0], // X: red
+	[0.0, 1.0, 0.0, 1.0], // Y: green
+	[0.0, 0.4, 1.0, 1.0], // Z: blue
+	[1.0, 0.8, 0.0, 1.0], // W: gold
+	[0.9, 0.3, 1.0, 1.0], // V: magenta
+	[0.0, 1.0, 1.0, 1.0], // U: cyan
+];
+const AXIS_LABELS = ['X', 'Y', 'Z', 'W', 'V', 'U'];
+
+function projectVec6(v: Vec6, frame: Frame): { x: number, y: number } {
+	// Dot the 6D vector with the 3 camera basis vectors to get 3D projection,
+	// then perspective-project onto 2D.
+	const camX = v.dot(frame.right);
+	const camY = v.dot(frame.up);
+	const camZ = v.dot(frame.forward);
+
+	// Perspective: (camX, camY) / (focalLength + camZ)
+	// Scale such that a unit-length vector at z=0 maps nicely to screen space
+	const effectiveZ = state.focalLength + camZ;
+	const scale = state.focalLength / Math.max(effectiveZ, 0.01);
+	return { x: camX * scale, y: camY * scale };
+}
+
+function projectPoint(worldPt: Vec6, frame: Frame): { x: number, y: number } {
+	// worldPt is in 6D world space. Camera is at state.position.
+	const rel = worldPt.subtract(state.position);
+	return projectVec6(rel, frame);
+}
+
+function drawAxes(frame: Frame): void {
+	const w = axesCanvas.width;
+	const h = axesCanvas.height;
+	axesCtx.clearRect(0, 0, w, h);
+
+	const pixelScale = Math.min(w, h) * 0.12; // world-space units → pixels
+
+	// Screen center in pixels
+	const centerX = w / 2;
+	const centerY = h / 2;
+
+	// Where does the world origin project to?
+	const originPos = state.position.scale(-1); // origin relative to camera
+	const originProj = projectVec6(originPos, frame);
+
+	const basisVecs = [
+		Vec6.X(),
+		Vec6.Y(),
+		Vec6.Z(),
+		Vec6.W(),
+		Vec6.V(),
+		Vec6.U(),
+	];
+
+	// Project each axis offset vector (basisVec in camera space, since it's a direction)
+	const projections: { x: number, y: number; depth: number }[] =
+		basisVecs.map(bv => {
+			const p = projectVec6(bv, frame);
+			const depth = bv.dot(frame.forward);
+			return { x: p.x, y: p.y, depth };
+		});
+
+	// Sort by depth (draw farther axes first)
+	const depthSorted = projections
+		.map((p, i) => ({ index: i, depth: p.depth }))
+		.sort((a, b) => b.depth - a.depth);
+
+	// Origin center on screen (camera-space origin + projected origin offset)
+	const ax = centerX + originProj.x * pixelScale;
+	const ay = centerY - originProj.y * pixelScale;
+
+	for (const { index } of depthSorted) {
+		const proj = projections[index]!;
+		const sx = ax + proj.x * pixelScale;
+		const sy = ay - proj.y * pixelScale;
+
+		// Fade axes whose forward component points away from camera
+		const alpha = Math.max(0.1, Math.min(1.0, 0.5 - proj.depth * 0.5));
+
+		const [cr, cg, cb] = AXIS_COLORS[index]!;
+
+		// Draw line from origin to tip
+		axesCtx.beginPath();
+		axesCtx.moveTo(ax, ay);
+		axesCtx.lineTo(sx, sy);
+		axesCtx.strokeStyle = `rgba(${Math.round(cr * 255)}, ${Math.round(cg * 255)}, ${Math.round(cb * 255)}, ${(alpha * 0.7).toFixed(3)})`;
+		axesCtx.lineWidth = 2;
+		axesCtx.stroke();
+
+		// Draw positive direction dot at tip
+		axesCtx.beginPath();
+		axesCtx.arc(sx, sy, 4, 0, Math.PI * 2);
+		axesCtx.fillStyle = `rgba(${Math.round(cr * 255)}, ${Math.round(cg * 255)}, ${Math.round(cb * 255)}, ${alpha.toFixed(3)})`;
+		axesCtx.fill();
+
+		// Draw label offset from the tip
+		axesCtx.font = 'bold 11px monospace';
+		axesCtx.fillStyle = `rgba(${Math.round(cr * 255)}, ${Math.round(cg * 255)}, ${Math.round(cb * 255)}, ${alpha.toFixed(3)})`;
+		axesCtx.textAlign = 'center';
+		axesCtx.textBaseline = 'bottom';
+		const labelOffX = (sx - ax) * 0.12;
+		const labelOffY = (sy - ay) * 0.12;
+		axesCtx.fillText(AXIS_LABELS[index]!, sx + labelOffX, sy - 6 + labelOffY);
+	}
+
+	// Origin dot
+	const distToOrigin = state.position.length();
+	const originInFront = state.position.scale(-1).dot(frame.forward) + state.focalLength > 0.01;
+	if (originInFront && distToOrigin < 50) {
+		axesCtx.beginPath();
+		axesCtx.arc(ax, ay, 3, 0, Math.PI * 2);
+		axesCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+		axesCtx.fill();
+	}
+}
+
 // ---- Input ----
 const keys: Record<string, boolean> = {};
 let dragging = false, lastX = 0, lastY = 0;
@@ -243,6 +362,12 @@ function resize(): void {
 		canvas.width = w; canvas.height = h;
 		gl.viewport(0, 0, w, h);
 	}
+	// Keep axes overlay at full pixel resolution for crisp lines
+	const ow = Math.max(2, Math.floor(axesCanvas.clientWidth * window.devicePixelRatio));
+	const oh = Math.max(2, Math.floor(axesCanvas.clientHeight * window.devicePixelRatio));
+	if (axesCanvas.width !== ow || axesCanvas.height !== oh) {
+		axesCanvas.width = ow; axesCanvas.height = oh;
+	}
 }
 
 let lastT = performance.now();
@@ -274,6 +399,8 @@ function renderFrame(): void {
 	gl.uniform1f(uniforms.u_glowIntensity, state.glowIntensity);
 
 	gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+	drawAxes(frame);
 
 	hud.textContent =
 		`mode: ${state.inputMode.name} (1/2/3 to switch)\n` +
