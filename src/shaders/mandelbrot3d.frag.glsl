@@ -4,19 +4,6 @@ precision highp float;
 in vec2 v_texCoord;
 out vec4 fragColor;
 
-// ----- Constants -----
-const float GLOW_THRESHOLD = 0.2;
-const float GLOW_WEIGHT_FACTOR = 0.5;
-
-const float STEP_SIZE_MIN_FACTOR = 0.35;
-const int BINARY_SEARCH_ITERATIONS = 8;
-
-const float NORMAL_STEP_FACTOR = 0.75;
-const float EXTERIOR_STEP_FACTOR = 1.5;
-
-const float AMBIENT_LIGHT = 0.25;
-const float DIFFUSE_FACTOR = 0.85;
-
 // ----- Vec6 -----
 struct Vec6 { float x; float y; float z; float w; float v; float u; };
 Vec6 add6(Vec6 a, Vec6 b) { return Vec6(a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w, a.v+b.v, a.u+b.u); }
@@ -48,6 +35,15 @@ uniform float u_focalLength;
 uniform float u_fogDensity;
 uniform vec4 u_fogColor;
 uniform float u_glowIntensity;
+
+uniform float u_glowThreshold;
+uniform float u_glowWeightFactor;
+uniform float u_stepSizeMinFactor;
+uniform int u_binarySearchIterations;
+uniform float u_normalStepFactor;
+uniform float u_exteriorStepFactor;
+uniform float u_ambientLight;
+uniform float u_diffuseFactor;
 
 struct ColorStop {
 	float position;
@@ -151,9 +147,9 @@ void main() {
 
 		// Accumulate glow from points near the set (high iteration count)
 		float f = clamp(it / float(u_maxIterations), 0.0, 1.0);
-		if (f > GLOW_THRESHOLD) {
+		if (f > u_glowThreshold) {
 			vec4 glowColor = sampleGradient(f);
-			float glowWeight = smoothstep(GLOW_THRESHOLD, 1.0, f) * u_glowIntensity * u_stepSize * GLOW_WEIGHT_FACTOR;
+			float glowWeight = smoothstep(u_glowThreshold, 1.0, f) * u_glowIntensity * u_stepSize * u_glowWeightFactor;
 			// Fog-attenuate the glow contribution
 			float distFog = exp(-u_fogDensity * t);
 			glowAcc += glowColor * glowWeight * distFog;
@@ -164,7 +160,7 @@ void main() {
 
 			// Binary search: surface lies between tPrev (outside) and t (inside).
 			float lo = tPrev, hi = t;
-			for (int j = 0; j < BINARY_SEARCH_ITERATIONS; j++) {
+			for (int j = 0; j < u_binarySearchIterations; j++) {
 				float mid = 0.5 * (lo + hi);
 				if (isInside(add6(rayOrigin, mul6(rayDir, mid)))) hi = mid; else lo = mid;
 			}
@@ -173,7 +169,7 @@ void main() {
 			break;
 		}
 		tPrev = t;
-		t += u_stepSize * mix(STEP_SIZE_MIN_FACTOR, 1.0, f);
+		t += u_stepSize * mix(u_stepSizeMinFactor, 1.0, f);
 		if (t > u_maxDistance) break;
 	}
 
@@ -188,16 +184,16 @@ void main() {
 	}
 
 	// Shade: gradient color from iteration field near surface + simple diffuse lighting.
-	vec3 normal = calcNormal(hitPos, u_stepSize * NORMAL_STEP_FACTOR, rightV, upV, forwardV);
+	vec3 normal = calcNormal(hitPos, u_stepSize * u_normalStepFactor, rightV, upV, forwardV);
 	float diff = clamp(dot(normal, normalize(-u_lightDir)), 0.0, 1.0);
-	float ambient = AMBIENT_LIGHT;
+	float ambient = u_ambientLight;
 
 	// Sample iteration count a bit in front of the hit (exterior side) for color.
-	Vec6 extPos = add6(hitPos, mul6(rayDir, -u_stepSize * EXTERIOR_STEP_FACTOR));
+	Vec6 extPos = add6(hitPos, mul6(rayDir, -u_stepSize * u_exteriorStepFactor));
 	float colorValue = mandelbrot(extPos) / float(u_maxIterations);
 	vec4 baseColor = sampleGradient(colorValue);
 
-	vec3 litColor = baseColor.rgb * (ambient + diff * DIFFUSE_FACTOR);
+	vec3 litColor = baseColor.rgb * (ambient + diff * u_diffuseFactor);
 
 	// Apply fog to the surface
 	vec4 surfaceResult = vec4(mix(u_fogColor.rgb, litColor, fogFactor), 1.0);

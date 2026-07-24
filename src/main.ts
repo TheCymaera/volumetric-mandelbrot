@@ -88,6 +88,14 @@ const uniforms = {
 	u_fogDensity: requireUniform('u_fogDensity'),
 	u_fogColor: requireUniform('u_fogColor'),
 	u_glowIntensity: requireUniform('u_glowIntensity'),
+	u_glowThreshold: requireUniform('u_glowThreshold'),
+	u_glowWeightFactor: requireUniform('u_glowWeightFactor'),
+	u_stepSizeMinFactor: requireUniform('u_stepSizeMinFactor'),
+	u_binarySearchIterations: requireUniform('u_binarySearchIterations'),
+	u_normalStepFactor: requireUniform('u_normalStepFactor'),
+	u_exteriorStepFactor: requireUniform('u_exteriorStepFactor'),
+	u_ambientLight: requireUniform('u_ambientLight'),
+	u_diffuseFactor: requireUniform('u_diffuseFactor'),
 };
 
 // ---- State ----
@@ -148,6 +156,14 @@ const state = {
 	fogDensity: 0.1,
 	fogColor: [0.1, 0.15, 0.3, 1.0] as [number, number, number, number],
 	glowIntensity: 12,
+	glowThreshold: 0.2,
+	glowWeightFactor: 0.5,
+	stepSizeMinFactor: 0.35,
+	binarySearchIterations: 8,
+	normalStepFactor: 0.75,
+	exteriorStepFactor: 1.5,
+	ambientLight: 0.25,
+	diffuseFactor: 0.85,
 };
 
 interface Frame {
@@ -397,6 +413,14 @@ function renderFrame(): void {
 	gl.uniform1f(uniforms.u_fogDensity, state.fogDensity);
 	gl.uniform4f(uniforms.u_fogColor, ...state.fogColor);
 	gl.uniform1f(uniforms.u_glowIntensity, state.glowIntensity);
+	gl.uniform1f(uniforms.u_glowThreshold, state.glowThreshold);
+	gl.uniform1f(uniforms.u_glowWeightFactor, state.glowWeightFactor);
+	gl.uniform1f(uniforms.u_stepSizeMinFactor, state.stepSizeMinFactor);
+	gl.uniform1i(uniforms.u_binarySearchIterations, state.binarySearchIterations);
+	gl.uniform1f(uniforms.u_normalStepFactor, state.normalStepFactor);
+	gl.uniform1f(uniforms.u_exteriorStepFactor, state.exteriorStepFactor);
+	gl.uniform1f(uniforms.u_ambientLight, state.ambientLight);
+	gl.uniform1f(uniforms.u_diffuseFactor, state.diffuseFactor);
 
 	gl.drawArrays(gl.TRIANGLES, 0, 3);
 
