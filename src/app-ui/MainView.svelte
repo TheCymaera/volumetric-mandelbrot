@@ -23,7 +23,7 @@
 
 	// ---- Canvas refs ----
 	let canvas: HTMLCanvasElement;
-	let renderer: Renderer;
+	let renderer = $state<Renderer | undefined>(undefined);
 
 	// ---- State ----
 	interface InputMode {
@@ -116,8 +116,6 @@
 	}
 
 	onMount(() => {
-		renderer = new Renderer(canvas);
-
 		// Mouse drag to rotate
 		canvas.addEventListener('pointerdown', e => {
 			if (e.button !== 0) return;
@@ -148,7 +146,7 @@
 
 		// Resize observer
 		const resizeObserver = new ResizeObserver(() => {
-			renderer.render();
+			renderer?.render();
 		});
 		resizeObserver.observe(canvas.parentElement!);
 
@@ -165,7 +163,7 @@
 			lastT = now;
 
 			update(deltaTime);
-			renderer.render();
+			renderer?.render();
 
 			requestAnimationFrame(animate);
 		}
@@ -312,9 +310,42 @@
 		</div>
 		<canvas 
 			bind:this={canvas}
-			class="w-full h-full block outline-none"
+			class="w-full h-full block outline-none bg-black"
 			tabindex="0"
 		></canvas>
+
+		{let initFailed = $state(false)}
+		{#if initFailed || renderer?.contextLost}
+			<div class="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm z-10 p-3 pointer-events-none">
+				<div class="bg-surface text-onSurface p-8 rounded-lg max-w-md text-center shadow-lg pointer-events-auto">
+					<h2 class="text-xl font-bold mb-3">{initFailed ? 'Initialization Failed' : 'WebGL Context Lost'}</h2>
+					<p class="text-onSurface/70">
+						Your device may not have sufficient GPU resources to run this application.
+					</p>
+				</div>
+			</div>
+		{:else if !renderer}
+			<div class="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm z-10 p-3 pointer-events-none">
+				<div class="bg-surface text-onSurface p-8 rounded-lg max-w-md text-center shadow-lg pointer-events-auto">
+					<h2 class="text-xl font-bold mb-3">Warning</h2>
+					<p class="text-onSurface/70">
+						This application requires a powerful GPU to run.
+					</p>
+					<Button
+						className="mt-4"
+						onPress={() => {
+							try {
+								renderer = new Renderer(canvas);
+							} catch (err) {
+								initFailed = true;
+							}	
+						}}
+					>
+						Continue
+					</Button>
+				</div>
+			</div>
+		{/if}
 	</div>
 
 	<!-- Collapsible sidebar -->

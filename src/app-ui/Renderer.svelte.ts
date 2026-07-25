@@ -35,6 +35,8 @@ export class Renderer {
 	#uniforms: ReturnType<Renderer['_requireUniforms']>;
 	#lastState: ReturnType<typeof toSerializable> | null = null;
 
+	contextLost = $state(false);
+
 	render() {
 		const didResize = this.resize();
 
@@ -42,7 +44,6 @@ export class Renderer {
 		if (!didResize && deepEquals(this.#lastState, serialized)) return;
 		this.#lastState = serialized;
 
-		console.log('Rendering frame', serialized);
 		this.#renderGL();
 		this.#composite();
 	}
@@ -52,6 +53,11 @@ export class Renderer {
 		this.#ctx = canvas.getContext('2d')!;
 
 		this.#glCanvas = document.createElement('canvas');
+		this.#glCanvas.addEventListener('webglcontextlost', e => {
+			//e.preventDefault();
+			this.contextLost = true;
+		});
+
 		const gl = this.#glCanvas.getContext('webgl2');
 		if (!gl) throw new Error('WebGL2 not supported');
 		this.#gl = gl;
@@ -71,27 +77,27 @@ export class Renderer {
 	}
 
 	#compile(gl: WebGL2RenderingContext, type: number, src: string) {
-		const s = gl.createShader(type)!;
-		gl.shaderSource(s, src);
-		gl.compileShader(s);
-		if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-			console.error(gl.getShaderInfoLog(s));
+		const shader = gl.createShader(type)!;
+		gl.shaderSource(shader, src);
+		gl.compileShader(shader);
+		if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+			console.error(gl.getShaderInfoLog(shader));
 			console.error(src.split('\n').map((l, i) => `${i + 1}: ${l}`).join('\n'));
 			throw new Error('shader compile failed');
 		}
-		return s;
+		return shader;
 	}
 
 	#createProgram(gl: WebGL2RenderingContext, vsSrc: string, fsSrc: string) {
-		const p = gl.createProgram()!;
-		gl.attachShader(p, this.#compile(gl, gl.VERTEX_SHADER, vsSrc));
-		gl.attachShader(p, this.#compile(gl, gl.FRAGMENT_SHADER, fsSrc));
-		gl.linkProgram(p);
-		if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-			console.error(gl.getProgramInfoLog(p));
+		const program = gl.createProgram()!;
+		gl.attachShader(program, this.#compile(gl, gl.VERTEX_SHADER, vsSrc));
+		gl.attachShader(program, this.#compile(gl, gl.FRAGMENT_SHADER, fsSrc));
+		gl.linkProgram(program);
+		if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+			console.error(gl.getProgramInfoLog(program));
 			throw new Error('link failed');
 		}
-		return p;
+		return program;
 	}
 
 	#requireUniform(gl: WebGL2RenderingContext, name: string) {
@@ -233,10 +239,10 @@ export class Renderer {
 	#composite() {
 		const ctx = this.#ctx;
 
-		// Draw WebGL output
+		ctx.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
+
 		ctx.drawImage(this.#glCanvas, 0, 0);
 
-		// Draw axes overlay directly
 		if (mandelbrot.showAxes) {
 			this.#drawAxes();
 		}
