@@ -244,13 +244,17 @@
 	// Plane mappings for rotation select
 	const rotations: { name: string; mapping: { from: number; to: number }[] }[] = [
 		{ name: 'None', mapping: [] },
-		{ name: 'Mandelbrot XYZ to Julia ZWX', mapping: [
+		{ name: 'Mandelbrot to Julia', mapping: [
 			{ from: Vec6.X_INDEX, to: Vec6.Z_INDEX },
 			{ from: Vec6.Y_INDEX, to: Vec6.W_INDEX },
 		] },
-		{ name: 'Mandelbrot XYZ to X VUX', mapping: [
+		{ name: 'Mandelbrot to Exponent', mapping: [
 			{ from: Vec6.X_INDEX, to: Vec6.V_INDEX },
 			{ from: Vec6.Y_INDEX, to: Vec6.U_INDEX },
+		] },
+		{ name: 'Julia to Exponent', mapping: [
+			{ from: Vec6.Z_INDEX, to: Vec6.V_INDEX },
+			{ from: Vec6.W_INDEX, to: Vec6.U_INDEX },
 		] },
 	];
 	for (let i = 0; i < 6; i++) {
