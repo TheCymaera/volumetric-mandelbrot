@@ -244,36 +244,13 @@
 	// Plane mappings for rotation select
 	const rotations: { name: string; mapping: { from: number; to: number }[] }[] = [
 		{ name: 'None', mapping: [] },
-		{ name: 'Mandelbrot XYZ to Mandelbrot XYW', mapping: [
-			{ from: Vec6.Z_INDEX, to: Vec6.W_INDEX },
-		] },
 		{ name: 'Mandelbrot XYZ to Julia ZWX', mapping: [
 			{ from: Vec6.X_INDEX, to: Vec6.Z_INDEX },
 			{ from: Vec6.Y_INDEX, to: Vec6.W_INDEX },
 		] },
-		{ name: 'Mandelbrot XYZ to Julia ZWY', mapping: [
-			{ from: Vec6.X_INDEX, to: Vec6.Z_INDEX },
-			{ from: Vec6.Y_INDEX, to: Vec6.W_INDEX },
-			{ from: Vec6.X_INDEX, to: Vec6.Y_INDEX },
-		] },
 		{ name: 'Mandelbrot XYZ to X VUX', mapping: [
 			{ from: Vec6.X_INDEX, to: Vec6.V_INDEX },
 			{ from: Vec6.Y_INDEX, to: Vec6.U_INDEX },
-		] },
-		{ name: 'Mandelbrot XYZ to X VUY', mapping: [
-			{ from: Vec6.X_INDEX, to: Vec6.V_INDEX },
-			{ from: Vec6.Y_INDEX, to: Vec6.U_INDEX },
-			{ from: Vec6.X_INDEX, to: Vec6.Y_INDEX },
-		] },
-		{ name: 'Mandelbrot XYZ to X VUZ', mapping: [
-			{ from: Vec6.X_INDEX, to: Vec6.V_INDEX },
-			{ from: Vec6.Y_INDEX, to: Vec6.U_INDEX },
-			{ from: Vec6.X_INDEX, to: Vec6.Z_INDEX },
-		] },
-		{ name: 'Mandelbrot XYZ to X VUW', mapping: [
-			{ from: Vec6.X_INDEX, to: Vec6.V_INDEX },
-			{ from: Vec6.Y_INDEX, to: Vec6.U_INDEX },
-			{ from: Vec6.X_INDEX, to: Vec6.W_INDEX },
 		] },
 	];
 	for (let i = 0; i < 6; i++) {
@@ -533,6 +510,10 @@
 				Rotate
 			</Button>
 		</div>
+
+		<Button className="px-5! p-2! rounded! mt-2" onPress={() => (mandelbrot.orientation = Mat6.identity())}>
+			Reset Rotation
+		</Button>
 	</div>
 
 	<!-- Position -->
@@ -549,10 +530,6 @@
 	<!-- Rotation -->
 	<div class="mb-6">
 		<h3 class="text-lg font-semibold mb-2">Rotation</h3>
-
-		<Button className="px-5! p-2! rounded! mt-2" onPress={() => (mandelbrot.orientation = Mat6.identity())}>
-			Reset Rotation
-		</Button>
 
 		<h4 class="font-semibold mt-4 mb-2">
 			Right Vector
