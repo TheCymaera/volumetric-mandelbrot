@@ -653,7 +653,7 @@
 	{#each [
 		{ name: 'Mandelbrot', presets: presets.mandelbrot },
 		{ name: 'Julia', presets: presets.julia },
-		{ name: 'Hyperbolic Julia', presets: presets.hyperbolicJulia },
+		{ name: 'More Julia', presets: presets.moreJulia },
 	] as presetSection}
 		<h3 class="text-lg font-semibold mb-2">{presetSection.name}</h3>
 		{#each presetSection.presets as preset}

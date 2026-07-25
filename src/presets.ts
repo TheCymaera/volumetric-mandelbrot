@@ -97,5 +97,5 @@ const noiseSet = {
 export const presets = {
 	mandelbrot: [xyz, xyv, xyu],
 	julia: [zwx, zwy, zwv],
-	hyperbolicJulia: [nebula, nebula2, noiseSet],
+	moreJulia: [nebula, nebula2, noiseSet],
 }
