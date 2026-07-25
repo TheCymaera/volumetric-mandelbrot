@@ -21,7 +21,7 @@ uniform Vec6 u_up;
 uniform Vec6 u_forward;
 
 uniform vec2 u_screenSize;
-uniform float u_zoom;
+uniform float u_retinaWidth;
 
 uniform float u_bailoutRadiusSquared;
 uniform int u_maxIterations;
@@ -37,13 +37,14 @@ uniform vec4 u_fogColor;
 uniform float u_glowIntensity;
 
 uniform float u_glowThreshold;
-uniform float u_glowWeightFactor;
 uniform float u_stepSizeMinFactor;
 uniform int u_binarySearchIterations;
 uniform float u_normalStepFactor;
 uniform float u_exteriorStepFactor;
 uniform float u_ambientLight;
 uniform float u_diffuseFactor;
+
+uniform float u_logSmoothingRadius;
 
 struct ColorStop {
 	float position;
@@ -84,21 +85,30 @@ float mandelbrot(Vec6 p) {
 	vec2 c = vec2(p.x, p.y);
 	vec2 e = vec2(p.v, p.u);
 
+	// Mandelbrot iteration
 	int iterations = 0;
 	float zz = dot(z, z);
 
+	float zzSafe = zz; // track last finite zz for smoothing
+	int safeIterations = 0;
+	
 	for (; zz < u_bailoutRadiusSquared && iterations < u_maxIterations; iterations++) {
 		z = complexPow(z, e) + c;
 		zz = dot(z, z);
+		if (!isinf(zz)) {
+			zzSafe = zz;
+			safeIterations = iterations + 1;
+		}
 	}
 
-	if (iterations >= u_maxIterations) return float(u_maxIterations);
-
-	// Smooth (fractional) iteration count for continuous coloring/normals.
-	float logPower = log(max(length(e), 1.0001));
-	float smoothIter = float(iterations) + 1.0
-		- log(max(log(sqrt(zz)) / log(sqrt(u_bailoutRadiusSquared)), 1e-6)) / logPower;
-	return clamp(smoothIter, 0.0, float(u_maxIterations));
+	// Smoothing
+	float smoothedIterations = float(iterations);
+	if (iterations < u_maxIterations) {
+		float log_zn = log(zzSafe) / 2.0;
+		float nu = log(log_zn / u_logSmoothingRadius) / log(2.0);
+		smoothedIterations = float(safeIterations) + 1.0 - nu;
+	}
+	return smoothedIterations;
 }
 
 bool isInside(Vec6 p) {
@@ -116,7 +126,7 @@ vec3 calcNormal(Vec6 p, float eps, Vec6 right, Vec6 up, Vec6 forward) {
 
 void main() {
 	float aspectRatio = u_screenSize.x / u_screenSize.y;
-	vec2 pixelOffset = (v_texCoord - vec2(0.5)) / u_zoom;
+	vec2 pixelOffset = (v_texCoord - vec2(0.5)) * u_retinaWidth;
 	pixelOffset.y /= aspectRatio;
 
 	Vec6 rightV = u_right;
@@ -149,7 +159,7 @@ void main() {
 		float f = clamp(it / float(u_maxIterations), 0.0, 1.0);
 		if (f > u_glowThreshold) {
 			vec4 glowColor = sampleGradient(f);
-			float glowWeight = smoothstep(u_glowThreshold, 1.0, f) * u_glowIntensity * u_stepSize * u_glowWeightFactor;
+			float glowWeight = smoothstep(u_glowThreshold, 1.0, f) * u_glowIntensity * u_stepSize;
 			// Fog-attenuate the glow contribution
 			float distFog = exp(-u_fogDensity * t);
 			glowAcc += glowColor * glowWeight * distFog;

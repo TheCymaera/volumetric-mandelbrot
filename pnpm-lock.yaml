@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      fontawesome-svgs:
+        specifier: ^2.0.0
+        version: 2.0.0
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^7.2.0
@@ -321,6 +325,9 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  fontawesome-svgs@2.0.0:
+    resolution: {integrity: sha512-PV1QYJL0HQHUED+QuCWLGcKJWOC5i74RT5yVm01ecqMebofQ/TwOLLKk6Q42H0bZzta15flCChRy+hgVOq4R9A==}
 
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
@@ -807,6 +814,8 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.5):
     optionalDependencies:
       picomatch: 4.0.5
+
+  fontawesome-svgs@2.0.0: {}
 
   fsevents@2.3.3:
     optional: true

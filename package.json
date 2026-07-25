@@ -8,5 +8,8 @@
 		"@tailwindcss/vite": "^4.3.3",
 		"svelte": "^5.56.6",
 		"vite": "^8.1.5"
+	},
+	"dependencies": {
+		"fontawesome-svgs": "^2.0.0"
 	}
 }

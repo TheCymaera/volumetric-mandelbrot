@@ -1,24 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>6D Mandelbrot — 3D Slice</title>
-<style>
-	html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
-	canvas { display: block; width: 100%; height: 100%; }
-	#gl { position: absolute; top: 0; left: 0; z-index: 1; }
-	#axes-overlay { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
-	#hud {
-		position: fixed; top: 8px; left: 8px; color: rgb(254, 235, 181);
-		font: 12px monospace; pointer-events: none; white-space: pre;
-		text-shadow: 0 0 4px #000; z-index: 3;
-	}
-</style>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover" />
+
+	<!-- pwa -->
+	<!--<link rel="manifest" href="./manifest.json">-->
+	<meta name="theme-color" content="#222">
+	<!--<link rel="apple-touch-icon" href="./assets/images/icon-bg-512.png">-->
+	<!--<meta name="apple-mobile-web-app-status-bar-style" content="default" />-->
+	<!--<meta name="apple-mobile-web-app-capable" content="yes" />-->
+
+	<!-- title & favicon -->
+	<title>Volumetric 6D Mandelbrot Set Explorer</title>
+	<link rel="icon" href="/favicon.png" type="image/png"/>
+	
+	<!-- info -->
+	<meta name="author" content="Morgan"/>
+	<meta name="description" content="Explore a 6-dimensional generalization of the Mandelbrot Set which contains the classical Mandelbrot Set, Julia Sets, and the X Sets on orthogonal planes."/>
+	<meta name="keywords" content="Heledron, Hadron, Cymaera"/>
+	
+	<!-- sharing -->
+	<meta property="og:title" content="Mandelbrot Set Explorer"/>
+	<meta property="og:description" content="Explore a 6-dimensional generalization of the Mandelbrot Set which contains the classical Mandelbrot Set, Julia Sets, and the X Sets on orthogonal planes."/>
+	<meta property="og:url"   content="https://heledron.com/misc/volumetric-mandelbrot/"/>
+	<meta property="og:image" content="https://heledron.com/misc/volumetric-mandelbrot/thumbnail.webp"/>
+	<meta property="og:type"  content="website"/>
+
+	<!-- styles & scripts -->
+	<script type="module" src="./src/main.ts"></script>
 </head>
 <body>
-<canvas id="gl"></canvas>
-<canvas id="axes-overlay"></canvas>
-<div id="hud"></div>
-<script type="module" src="./src/main.ts"></script>
+	<div class="SvelteOutlet"></div>
 </body>
 </html>
