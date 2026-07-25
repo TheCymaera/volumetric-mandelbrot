@@ -422,11 +422,11 @@
 				Press {@render kbd('1')}, {@render kbd('2')}, or {@render kbd('3')} to switch modes
 			</div>
 			<div class="flex items-center mb-1">
-				<div>Move {getAxisName(inputMode.horizontal)}</div>
+				<div>Move {moveMode === 'local' ? "Local " : ""}{getAxisName(inputMode.horizontal)}</div>
 				{@render kbd('W')}{@render kbd('D')}
 			</div>
 			<div class="flex items-center mb-1">
-				<div>Move {getAxisName(inputMode.vertical)}</div>
+				<div>Move {moveMode === 'local' ? "Local " : ""} {getAxisName(inputMode.vertical)}</div>
 				{@render kbd('A')}{@render kbd('S')}
 			</div>
 			<div class="flex items-center mb-1">
