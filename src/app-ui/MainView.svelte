@@ -30,7 +30,6 @@
 		name: string;
 		horizontal: Vec6;
 		vertical: Vec6;
-		dolly: boolean;
 		planeMappings: { from: number; to: number }[];
 	}
 
@@ -39,14 +38,12 @@
 			name: 'Mandelbrot',
 			horizontal: Vec6.X(),
 			vertical: Vec6.Y(),
-			dolly: true,
 			planeMappings: [],
 		},
 		{
 			name: 'Julia',
 			horizontal: Vec6.Z(),
 			vertical: Vec6.W(),
-			dolly: false,
 			planeMappings: [
 				{ from: Vec6.X_INDEX, to: Vec6.Z_INDEX },
 				{ from: Vec6.Y_INDEX, to: Vec6.W_INDEX },
@@ -56,7 +53,6 @@
 			name: 'X',
 			horizontal: Vec6.V(),
 			vertical: Vec6.U(),
-			dolly: false,
 			planeMappings: [
 				{ from: Vec6.X_INDEX, to: Vec6.V_INDEX },
 				{ from: Vec6.Y_INDEX, to: Vec6.U_INDEX },
@@ -105,14 +101,18 @@
 		let dollyAmount = 0;
 		if (keyMap.isMovingForward) {
 			rotAmount += rotSpeed;
-			if (inputMode.dolly) dollyAmount += moveSpeed;
+			dollyAmount += moveSpeed;
 		}
 		if (keyMap.isMovingBackward) {
 			rotAmount -= rotSpeed;
-			if (inputMode.dolly) dollyAmount -= moveSpeed;
+			dollyAmount -= moveSpeed;
 		}
-		rotate(rotAmount, rotateMode);
-		mandelbrot.dolly += dollyAmount;
+		
+		if (inputMode.planeMappings.length === 0) {
+			mandelbrot.dolly += dollyAmount;
+		} else {
+			rotate(rotAmount, rotateMode);
+		}
 	}
 
 	onMount(() => {
@@ -150,10 +150,19 @@
 		});
 		resizeObserver.observe(canvas.parentElement!);
 
-		// Clamp width
-		//if (canvas.clientWidth * devicePixelRatio < Number.parseInt(mandelbrot.resolution.width)) {
-		//	mandelbrot.resolution.width = Math.floor(canvas.clientWidth * devicePixelRatio).toString();
-		//}
+		// Clamp dimensions
+		{
+			const width = Math.floor(canvas.clientWidth * devicePixelRatio);
+			console.log(width, mandelbrot.resolution.width);
+			if (mandelbrot.resolution.width !== "Auto" && width < Number.parseInt(mandelbrot.resolution.width)) {
+				mandelbrot.resolution.width = width.toString();
+			}
+
+			const height = Math.floor(canvas.clientHeight * devicePixelRatio);
+			if (mandelbrot.resolution.height !== "Auto" && height < Number.parseInt(mandelbrot.resolution.height)) {
+				mandelbrot.resolution.height = height.toString();
+			}
+		}
 
 		// Animation loop
 		let lastT = performance.now();
@@ -228,7 +237,7 @@
 				to = mandelbrot.orientation.multiplyVec6(to);
 			}
 
-			mandelbrot.orientation = Mat6.rotationFromAxes(Vec6.fromIndex(mapping.from), Vec6.fromIndex(mapping.to), amount).multiply(mandelbrot.orientation);
+			mandelbrot.orientation = Mat6.rotationFromAxes(from, to, amount).multiply(mandelbrot.orientation);
 		}
 	}
 

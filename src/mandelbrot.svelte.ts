@@ -36,7 +36,7 @@ export const mandelbrot = $state({
 	showAxes: true,
 	resolution: {
 		width: 'Auto',
-		height: 'Auto',
+		height: '800',
 	},
 });
 
