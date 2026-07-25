@@ -152,6 +152,11 @@
 		});
 		resizeObserver.observe(canvas.parentElement!);
 
+		// Clamp width
+		if (canvas.clientWidth * devicePixelRatio < Number.parseInt(mandelbrot.resolution.width)) {
+			mandelbrot.resolution.width = Math.floor(canvas.clientWidth * devicePixelRatio).toString();
+		}
+
 		// Animation loop
 		let lastT = performance.now();
 		function animate() {

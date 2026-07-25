@@ -26,49 +26,48 @@ const AXIS_MIN_ALPHA = 1;
 const AXIS_DEPTH_FADE_RANGE = .6;
 
 export class Renderer {
-	private displayCanvas: HTMLCanvasElement;
-	private displayCtx: CanvasRenderingContext2D;
-	private glCanvas: HTMLCanvasElement;
-	private gl: WebGL2RenderingContext;
-	private prog: WebGLProgram;
-	private vao: WebGLVertexArrayObject;
-	private uniforms: ReturnType<Renderer['_requireUniforms']>;
-	private lastState: ReturnType<typeof toSerializable> | null = null;
+	#canvas: HTMLCanvasElement;
+	#ctx: CanvasRenderingContext2D;
+	#glCanvas: HTMLCanvasElement;
+	#gl: WebGL2RenderingContext;
+	#program: WebGLProgram;
+	#vao: WebGLVertexArrayObject;
+	#uniforms: ReturnType<Renderer['_requireUniforms']>;
+	#lastState: ReturnType<typeof toSerializable> | null = null;
 
 	render() {
 		const didResize = this.resize();
 
 		const serialized = toSerializable(true);
-		if (!didResize && deepEquals(this.lastState, serialized)) return;
-		this.lastState = serialized;
+		if (!didResize && deepEquals(this.#lastState, serialized)) return;
+		this.#lastState = serialized;
 
 		console.log('Rendering frame', serialized);
 		this.#renderGL();
 		this.#composite();
 	}
 
-	constructor(displayCanvas: HTMLCanvasElement) {
-		this.displayCanvas = displayCanvas;
-		this.displayCtx = displayCanvas.getContext('2d')!;
+	constructor(canvas: HTMLCanvasElement) {
+		this.#canvas = canvas;
+		this.#ctx = canvas.getContext('2d')!;
 
-		// Off-screen WebGL canvas
-		this.glCanvas = document.createElement('canvas');
-		const gl = this.glCanvas.getContext('webgl2');
+		this.#glCanvas = document.createElement('canvas');
+		const gl = this.#glCanvas.getContext('webgl2');
 		if (!gl) throw new Error('WebGL2 not supported');
-		this.gl = gl;
+		this.#gl = gl;
 
-		this.prog = this.#createProgram(gl, vsSrc, fsSrc);
-		gl.useProgram(this.prog);
+		this.#program = this.#createProgram(gl, vsSrc, fsSrc);
+		gl.useProgram(this.#program);
 
-		this.vao = gl.createVertexArray()!;
-		gl.bindVertexArray(this.vao);
+		this.#vao = gl.createVertexArray()!;
+		gl.bindVertexArray(this.#vao);
 		const buf = gl.createBuffer();
 		gl.bindBuffer(gl.ARRAY_BUFFER, buf);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
 		gl.enableVertexAttribArray(0);
 		gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-		this.uniforms = this._requireUniforms(gl);
+		this.#uniforms = this._requireUniforms(gl);
 	}
 
 	#compile(gl: WebGL2RenderingContext, type: number, src: string) {
@@ -96,7 +95,7 @@ export class Renderer {
 	}
 
 	#requireUniform(gl: WebGL2RenderingContext, name: string) {
-		const out = gl.getUniformLocation(this.prog, name);
+		const out = gl.getUniformLocation(this.#program, name);
 		if (!out) throw new Error(`Uniform ${name} not found`);
 		return out;
 	}
@@ -142,7 +141,7 @@ export class Renderer {
 	}
 
 	#setVec6(locs: ReturnType<typeof this._requireVec6>, v: Vec6) {
-		const gl = this.gl!;
+		const gl = this.#gl!;
 		gl.uniform1f(locs.x, v.x);
 		gl.uniform1f(locs.y, v.y);
 		gl.uniform1f(locs.z, v.z);
@@ -152,15 +151,15 @@ export class Renderer {
 	}
 
 	#calculateResolution() {
-		const aspectRatio = (this.displayCanvas.clientWidth / Math.max(this.displayCanvas.clientHeight, 1)) || 1;
+		const aspectRatio = (this.#canvas.clientWidth / Math.max(this.#canvas.clientHeight, 1)) || 1;
 		const dpr = window.devicePixelRatio || 1;
 
 		const widthSetting = parseInt(mandelbrot.resolution.width) || undefined;
 		const heightSetting = parseInt(mandelbrot.resolution.height) || undefined;
 
 		if (!widthSetting && !heightSetting) return {
-			width: Math.floor(this.displayCanvas.clientWidth * dpr),
-			height: Math.floor(this.displayCanvas.clientHeight * dpr),
+			width: Math.floor(this.#canvas.clientWidth * dpr),
+			height: Math.floor(this.#canvas.clientHeight * dpr),
 		};
 
 		if (heightSetting && !widthSetting) {
@@ -183,32 +182,32 @@ export class Renderer {
 	}
 
 	resize() {
-		const gl = this.gl!;
+		const gl = this.#gl!;
 		const { width, height, useContainFit } = this.#calculateResolution();
 		
 		const w = Math.max(2, width);
 		const h = Math.max(2, height);
-		if (this.glCanvas.width === w && this.glCanvas.height === h) return false;
-		this.glCanvas.width = w;
-		this.glCanvas.height = h;
-		this.displayCanvas.width = w;
-		this.displayCanvas.height = h;
+		if (this.#glCanvas.width === w && this.#glCanvas.height === h) return false;
+		this.#glCanvas.width = w;
+		this.#glCanvas.height = h;
+		this.#canvas.width = w;
+		this.#canvas.height = h;
 		gl.viewport(0, 0, w, h);
-		this.displayCanvas.style.objectFit = useContainFit ? 'contain' : '';
+		this.#canvas.style.objectFit = useContainFit ? 'contain' : '';
 		return true;
 	}
 
 	#renderGL() {
-		const gl = this.gl!;
-		const u = this.uniforms!;
+		const gl = this.#gl!;
+		const u = this.#uniforms!;
 		const effectivePos = mandelbrot.position.add(frame.forward.scale(-mandelbrot.dolly));
 
-		gl.useProgram(this.prog);
+		gl.useProgram(this.#program);
 		this.#setVec6(u.u_pos, effectivePos);
 		this.#setVec6(u.u_right, frame.right);
 		this.#setVec6(u.u_up, frame.up);
 		this.#setVec6(u.u_forward, frame.forward);
-		gl.uniform2f(u.u_screenSize, this.glCanvas.width, this.glCanvas.height);
+		gl.uniform2f(u.u_screenSize, this.#glCanvas.width, this.#glCanvas.height);
 		gl.uniform1f(u.u_retinaWidth, mandelbrot.retinaWidth);
 		gl.uniform1f(u.u_bailoutRadiusSquared, mandelbrot.bailout ** 2);
 		gl.uniform1i(u.u_maxIterations, mandelbrot.maxIterations);
@@ -232,10 +231,10 @@ export class Renderer {
 	}
 
 	#composite() {
-		const ctx = this.displayCtx;
+		const ctx = this.#ctx;
 
 		// Draw WebGL output
-		ctx.drawImage(this.glCanvas, 0, 0);
+		ctx.drawImage(this.#glCanvas, 0, 0);
 
 		// Draw axes overlay directly
 		if (mandelbrot.showAxes) {
@@ -244,11 +243,11 @@ export class Renderer {
 	}
 
 	#drawAxes() {
-		const ctx = this.displayCtx;
-		const w = this.displayCanvas.width;
-		const h = this.displayCanvas.height;
+		const ctx = this.#ctx;
+		const w = this.#canvas.width;
+		const h = this.#canvas.height;
 
-		const canvasScale = w / Math.max(this.displayCanvas.clientWidth, 1);
+		const canvasScale = w / Math.max(this.#canvas.clientWidth, 1);
 		const pixelScale = Math.min(w, h) * AXIS_SCALE_FACTOR;
 		const centerX = w / 2;
 		const centerY = h / 2;
