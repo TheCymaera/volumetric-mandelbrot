@@ -81,7 +81,7 @@
 	};
 
 	function update(deltaTime: number) {
-		const rotSpeed = 1.2 * deltaTime;
+		const rotSpeed = mandelbrot.moveSpeed / 2 * deltaTime;
 		const moveSpeed = mandelbrot.moveSpeed * deltaTime;
 
 		let dir = Vec6.ZERO();
@@ -474,10 +474,7 @@
 	<!-- Controls -->
 	<div class="mb-6">
 		<h3 class="text-lg font-semibold mb-2">Controls</h3>
-		<div class="grid grid-cols-2 gap-2 mb-2">
-			<NumberField label="Move Speed" bind:value={mandelbrot.moveSpeed} />
-			<NumberField label="Rotate Speed" bind:value={mandelbrot.rotateSpeed} />
-		</div>
+		<NumberField label="Move Speed" bind:value={mandelbrot.moveSpeed} />
 
 		<CheckboxField
 			label="Move on Local Axes"
@@ -503,7 +500,7 @@
 			}
 		/>
 
-		<div class="grid grid-cols-[1fr_min-content] gap-2 items-end mb-3">
+		<div class="grid grid-cols-[1fr_min-content] gap-2 items-end mt-3">
 			<NumberField label="Rotate By" bind:value={rotateBy} />
 			<Button className="w-20 p-2! rounded!" disabled={inputMode.planeMappings.length === 0} onPress={() => {
 				const inRadians = rotateBy * (Math.PI / 180);
@@ -515,7 +512,7 @@
 			</Button>
 		</div>
 
-		<Button className="px-5! p-2! rounded! mt-2" onPress={() => (mandelbrot.orientation = Mat6.identity())}>
+		<Button className="px-5! p-2! rounded! mt-3" onPress={() => (mandelbrot.orientation = Mat6.identity())}>
 			Reset Rotation
 		</Button>
 	</div>

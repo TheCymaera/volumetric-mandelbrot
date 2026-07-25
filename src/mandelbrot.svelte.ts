@@ -13,7 +13,6 @@ export const mandelbrot = $state({
 	retinaWidth: 4,
 	focalLength: 3.0,
 	moveSpeed: 2,
-	rotateSpeed: 90,
 	maxIterations: 60,
 	stepSize: 0.03,
 	stepSizeMinFactor: 1,//.35,
