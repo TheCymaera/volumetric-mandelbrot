@@ -64,7 +64,6 @@
 		},
 	];
 
-	// Reactive state - all $state for Svelte 5 runes
 	let inputMode = $state(structuredClone(inputModeDefs[0]!));
 	let moveMode: "global" | "local" = $state("local");
 	let rotateMode: "global" | "local" = $state("global");
