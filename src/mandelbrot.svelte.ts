@@ -16,15 +16,17 @@ export const mandelbrot = $state({
 	rotateSpeed: 90,
 	maxIterations: 60,
 	stepSize: 0.03,
-	stepSizeMinFactor: .35,
-	maxDistance: 10,
+	stepSizeMinFactor: 1,//.35,
+	maxDistance: 5,//10,
+	binarySearchIterations: 4,
+
 	bailout: Infinity,
+
 	lightDir: [-0.5, -0.7, -1.0] as [number, number, number],
 	fogDensity: 0.1,
 	fogColor: [0.1, 0.15, 0.3, 1.0] as [number, number, number, number],
-	glowIntensity: 3,
+	glowIntensity: 6,
 	glowThreshold: 0.05,
-	binarySearchIterations: 4,
 	normalStepFactor: 0.5,
 	exteriorStepFactor: 1.5,
 	ambientLight: 0.25,
@@ -33,7 +35,7 @@ export const mandelbrot = $state({
 
 	showAxes: true,
 	resolution: {
-		width: '800',
+		width: 'Auto',
 		height: 'Auto',
 	},
 });
