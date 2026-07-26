@@ -3,5 +3,5 @@ import "./main.css";
 import { mount } from 'svelte';
 
 mount(App, {
-	target: document.querySelector('.SvelteOutlet')!,
+	target: document.querySelector('.svelte-outlet')!,
 });
