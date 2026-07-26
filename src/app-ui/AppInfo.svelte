@@ -30,7 +30,7 @@
 
 	<div class="mb-4">
 		The 6D Mandelbrot is a generalization by <a 
-			href="https://www.youtube.com/@2swap" 
+			href="https://www.youtube.com/watch?v=Ed1gsyxxwM0" 
 			target="_blank" 
 			class="text-primary-500 hover:underline"
 		>2swap</a>, defined by the iteration:
