@@ -449,15 +449,24 @@
 			</div>
 			<div class="flex items-center mb-1">
 				<div>Move {moveMode === 'local' ? "Local " : ""}{getAxisName(inputMode.horizontal)}</div>
-				{@render kbd('W')}{@render kbd('D')}
+				{@render kbd('W')}
+				{@render kbd('D')}
 			</div>
 			<div class="flex items-center mb-1">
 				<div>Move {moveMode === 'local' ? "Local " : ""} {getAxisName(inputMode.vertical)}</div>
-				{@render kbd('A')}{@render kbd('S')}
+				{@render kbd('A')}
+				{@render kbd('S')}
 			</div>
 			<div class="flex items-center mb-1">
-				{inputMode.planeMappings.length > 0 ? 'Rotate' : `Dolly`}
-				{@render kbd('Shift')}{@render kbd('Space')}
+				<div>{inputMode.planeMappings.length > 0 ? 'Rotate' : `Dolly`}</div>
+				{@render kbd('Shift')}
+				{@render kbd('Space')}
+			</div>
+
+			<div class="flex items-center mb-1">
+				<div>Adjust Speed</div>
+				{@render kbd("]")}
+				{@render kbd("[")}
 			</div>
 		</div>
 
