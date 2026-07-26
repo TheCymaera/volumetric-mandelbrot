@@ -483,6 +483,8 @@
 		<div class="text-sm mb-3 font-mono bg-codeContainer p-2 rounded">
 			z = z ^ e + c
 		</div>
+
+		<a class="text-primary-500 underline text-sm" href="#info">Mathematical Background</a>
 	</div>
 
 	<!-- Controls -->
